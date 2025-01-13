@@ -1,143 +1,189 @@
 <script lang="ts">
-  import type { ActionHash, AppClient, HolochainError, HoloHash } from "@holochain/client";
+  import type {
+    HoloHash,
+    HolochainError,
+    AppClient
+  } from "@holochain/client";
   import { AppWebsocket } from "@holochain/client";
   import { onMount, setContext } from "svelte";
-  
-  import { AdminWebsocket } from "@holochain/client";
 
   import logo from "./assets/holo_chan.png";
   import { type ClientContext, clientContext } from "./contexts";
-  
-  import fs from "fs";
 
-  // Import your scaffolded components
   import AllPosts from './imageboard/posts/AllPosts.svelte';
   import PostsByThread from './imageboard/posts/PostsByThread.svelte';
   import AllThreads from "./imageboard/posts/AllThreads.svelte";
   import CreatePost from "./imageboard/posts/CreatePost.svelte";
   import CreateThread from "./imageboard/posts/CreateThread.svelte";
-  import EditPost from "./imageboard/posts/EditPost.svelte";
-  import EditThread from "./imageboard/posts/EditThread.svelte";
-  import PostDetail from "./imageboard/posts/PostDetail.svelte";
-  import PostsForCreator from "./imageboard/posts/PostsForCreator.svelte";
-  import PostsForPost from "./imageboard/posts/PostsForPost.svelte";
-  import PostsForThread from "./imageboard/posts/PostsForThread.svelte";
-  import ThreadDetail from "./imageboard/posts/ThreadDetail.svelte";
-  import ThreadsForThread from "./imageboard/posts/ThreadsForThread.svelte";
 
   let client: AppClient | undefined;
   let error: HolochainError | undefined;
   let loading = false;
-  let author: HoloHash | undefined; // Define author variable
-  let yourImageHash: HoloHash | undefined;
-  let yourThreadHash: HoloHash | undefined;
+  let author: HoloHash | undefined; // The current user's agent pub key
+  let yourImageHash: HoloHash | undefined; // Placeholder for imageHash
+  let yourThreadHash: HoloHash | undefined; // Placeholder for threadHash
 
+  // Provide a context object so child components can retrieve the Holochain client
   const appClientContext = {
-  getClient: async () => {
-    if (!client) {
-      try {
-        client = await AppWebsocket.connect();
-      } catch (e) {
-        console.error("Failed to connect to AppWebsocket:", e);
-        throw e; // Rethrow to handle in onMount
-      }
-    }
-    return client;
-  },
-};
-
-  async function getDnaHashAndCellId() {
-  const adminClient = await AdminWebsocket.connect({
-    url: new URL("ws://localhost:8888"), // Create a URL object
-  });
-  
-  const cells = await adminClient.listCellIds();
-  
-  // Assuming you have only one cell, or loop through if multiple
-  const cell = cells[0]; // Get the first cell
-  return {
-    dnaHash: cell[0], // The DNA hash
-    cellId: cell[1], // The CellId which includes AgentPubKey
+    getClient: () => client,
   };
-}
 
-async function getCurrentUserKey(): Promise<HoloHash> {
-  if (!client) {
-    throw new Error("Client is not initialized");
+  async function getCurrentUserKey(): Promise<HoloHash> {
+    if (!client) {
+      throw new Error("Client is not initialized");
+    }
+    try {
+      const response = await client.callZome({
+        role_name: "imageboard",
+        zome_name: "posts",
+        fn_name: "get_agent_pub_key",
+        payload: null,
+      });
+      return response as HoloHash;
+    } catch (error) {
+      console.error("Error fetching user key:", error);
+      throw error;
+    }
   }
 
-  const { dnaHash, cellId } = await getDnaHashAndCellId(); // Retrieve DNA hash and Cell ID
-  
-  try {
-    const response = await client.callZome({
-      cell_id: [dnaHash, cellId], // Use retrieved values here
-      zome_name: "posts", // Replace with your actual zome name
-      fn_name: "get_agent_pub_key", // The name of the zome function
-      payload: null,
-    });
+  onMount(async () => {
+    try {
+      loading = true;
 
-    return response as HoloHash; // Ensure this matches the expected type
-  } catch (error) {
-    console.error("Error fetching user key:", error);
-    throw error; // Rethrow or handle as needed
-  }
-}
+      client = await AppWebsocket.connect();
 
-onMount(async () => {
-  try {
-    loading = true;
-    client = await appClientContext.getClient();
-    author = await getCurrentUserKey();
-  } catch (e) {
-    console.error("Error during onMount:", e); // Log detailed error
-    error = e as HolochainError;
-  } finally {
-    loading = false;
-  }
-});
- 
-  setContext<ClientContext>(clientContext, appClientContext);
+      author = await getCurrentUserKey();
+
+      // Assign placeholders for demonstration
+      yourImageHash = "example-image-hash" as unknown as HoloHash;
+      yourThreadHash = "example-thread-hash" as unknown as HoloHash;
+    } catch (e) {
+      console.error("Error during onMount:", e);
+      error = e as HolochainError;
+    } finally {
+      loading = false;
+    }
+  });
+
+  setContext(clientContext, {
+    getClient: () => client,
+  });
 </script>
 
 <main>
-  <div>
-    <a href="https://github.com/cassieopeanuts/holochan" target="_blank">
-      <img src={logo} class="logo holochan" alt="holochan logo" />
-    </a>
-  </div>
-  
-  <h1>HoloChan</h1>
-  
-  <div>
-    <div class="card">
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="container">
+      <img src={logo} alt="HoloChan Logo" class="logo small" />
+      <ul class="nav-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#threads">Threads</a></li>
+        <li><a href="#profile">Profile</a></li>
+        <li><a href="#create">Create</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div>
+      <a href="https://github.com/cassieopeanuts/holochan" target="_blank">
+        <img src={logo} class="logo holochan" alt="holochan logo" />
+      </a>
+    </div>
+
+    <h1>HoloChan</h1>
+
+    <div class="status-card">
       {#if loading}
         <p>Connecting...</p>
       {:else if error}
-        <p>{error.message}</p>
+        <p class="error">{error.message}</p>
       {:else}
         <p>Client is connected.</p>
       {/if}
     </div>
-    
-    {#if author}
-    <CreateThread {author} imageHash={yourImageHash} />
-    <AllThreads {author} />
-    
-    <!-- Assuming you have logic to determine imageHash and threadHash -->
-    <CreatePost {author} imageHash={yourImageHash} threadHash={yourThreadHash} />
-    <AllPosts {author} />
-    
-    <PostsByThread {author} />
-  {:else}
-    <p>Loading user information...</p>
-  {/if}
-  
 
-    <p class="read-the-docs">Click on the Holochain logo to learn more</p>
+    {#if author}
+      <section class="threads-section">
+        <h2>Your Threads</h2>
+        <CreateThread author={author} imageHash={yourImageHash} />
+        <AllThreads author={author} />
+      </section>
+
+      <section class="posts-section">
+        <h2>Your Posts</h2>
+        <CreatePost author={author} threadHash={yourThreadHash} imageHash={yourImageHash} />
+        <AllPosts author={author} />
+      </section>
+
+      <section class="threads-detail">
+        <h2>Posts by Thread</h2>
+        <PostsByThread author={author} />
+      </section>
+    {:else}
+      <p>Loading user information...</p>
+    {/if}
   </div>
 </main>
 
 <style>
+/* Navigation Bar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #222;
+  color: #fff;
+}
+.nav-links {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+}
+.nav-links a {
+  color: #61dafb;
+  text-decoration: none;
+}
+.nav-links a:hover {
+  text-decoration: underline;
+}
+.logo.small {
+  height: 3em;
+}
+
+/* Main Container */
+.main-container {
+  padding: 2rem;
+}
+
+/* Sections */
+.threads-section,
+.posts-section,
+.threads-detail {
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  color: #444;
+  margin-bottom: 1rem;
+}
+
+/* Cards */
+.status-card {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  background-color: #f9f9f9;
+  margin-bottom: 2rem;
+}
+.error {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+/* Logo */
 .logo {
   height: 15em;
   padding: 1.5em;
@@ -153,11 +199,22 @@ onMount(async () => {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
-.card {
-  padding: 2em;
-}
-
+/* Footer */
 .read-the-docs {
   color: #888;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .nav-links {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 </style>
