@@ -217,4 +217,24 @@ h2 {
     gap: 0.5rem;
   }
 }
+
+/* Upload files */
+upload-files {
+  display: block;
+  margin: 1rem 0;
+}
+
+button {
+  background-color: #61dafb;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 </style>

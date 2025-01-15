@@ -2,7 +2,10 @@ use hdk::prelude::*;
 use posts_integrity::*;
 
 #[hdk_extern]
-pub fn create_thread(thread: Thread) -> ExternResult<Record> {
+pub fn create_thread(mut thread: Thread) -> ExternResult<Record> {
+    // Automatically set timestamp
+    thread.timestamp = sys_time()?;
+    
     let thread_hash = create_entry(&EntryTypes::Thread(thread.clone()))?;
     create_link(
         thread.author.clone(),
@@ -13,9 +16,6 @@ pub fn create_thread(thread: Thread) -> ExternResult<Record> {
     if let Some(base) = thread.image_hash.clone() {
         create_link(base, thread_hash.clone(), LinkTypes::ThreadToThreads, ())?;
     }
-    let record = get(thread_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Could not find the newly created Thread".to_string())
-    ))?;
     let path = Path::from("all_threads");
     create_link(
         path.path_entry_hash()?,
@@ -23,6 +23,9 @@ pub fn create_thread(thread: Thread) -> ExternResult<Record> {
         LinkTypes::AllThreads,
         (),
     )?;
+    let record = get(thread_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Could not find the newly created Thread".to_string())
+    ))?;
     Ok(record)
 }
 

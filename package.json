@@ -18,7 +18,7 @@
     "build:zomes": "cargo build --release --target wasm32-unknown-unknown"
   },
   "devDependencies": {
-    "@holochain-playground/cli": "^0.300.0-rc.0",
+    "@holochain-playground/cli": "^0.300.1",
     "@holochain/hc-spin": "^0.400.0",
     "concurrently": "^6.5.1",
     "get-port-cli": "^3.0.0"
@@ -28,5 +28,10 @@
   },
   "hcScaffold": {
     "template": "svelte"
+  },
+  "dependencies": {
+    "@holochain-open-dev/context": "^0.0.3",
+    "lib": "^5.1.0",
+    "p-retry": "^6.2.1"
   }
 }

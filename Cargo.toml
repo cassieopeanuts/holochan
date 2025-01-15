@@ -13,8 +13,16 @@ hdi = "=0.5.0"
 hdk = "=0.4.0"
 serde = "1.0"
 
+# Posts Zome
 [workspace.dependencies.posts]
 path = "dnas/imageboard/zomes/coordinator/posts"
 
 [workspace.dependencies.posts_integrity]
 path = "dnas/imageboard/zomes/integrity/posts"
+
+# File Storage Zome
+[workspace.dependencies.file_storage]
+path = "dnas/imageboard/zomes/coordinator/file_storage"
+
+[workspace.dependencies.file_storage_integrity]
+path = "dnas/imageboard/zomes/integrity/file_storage"

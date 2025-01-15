@@ -8,7 +8,7 @@ import type {
   Link,
   NewEntryAction,
   Record,
-  SignalType,
+
 } from "@holochain/client";
 import { SignalType } from "@holochain/client";
 import { getContext, onMount } from "svelte";

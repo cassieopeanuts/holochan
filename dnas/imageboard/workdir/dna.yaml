@@ -10,6 +10,12 @@ integrity:
     bundled: '../../../target/wasm32-unknown-unknown/release/posts_integrity.wasm'
     dependencies: null
     dylib: null
+  - name: file_storage_integrity
+    hash: null
+    bundled: '../../../target/wasm32-unknown-unknown/release/file_storage_integrity.wasm'
+    dependencies: null
+    dylib: null
+
 coordinator:
   zomes:
   - name: posts
@@ -17,5 +23,11 @@ coordinator:
     bundled: '../../../target/wasm32-unknown-unknown/release/posts.wasm'
     dependencies:
     - name: posts_integrity
+    dylib: null
+  - name: file_storage
+    hash: null
+    bundled: '../../../target/wasm32-unknown-unknown/release/file_storage.wasm'
+    dependencies:
+    - name: file_storage_integrity
     dylib: null
 lineage: []
