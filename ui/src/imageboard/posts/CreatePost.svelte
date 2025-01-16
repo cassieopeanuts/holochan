@@ -3,6 +3,7 @@ import type { ActionHash, AgentPubKey, AppClient, DnaHash, EntryHash, HolochainE
 import { createEventDispatcher, getContext, onMount } from "svelte";
 import { type ClientContext, clientContext } from "../../contexts";
 import type { Post } from "./types";
+import CreatePostForm from "../../elements/CreatePostForm.svelte";
 
 const dispatch = createEventDispatcher();
 let client: AppClient;
@@ -56,25 +57,9 @@ async function createPost() {
 }
 </script>
 
-<div>
-  <h3>Create Post</h3>
-
-  <div>
-    <label for="Content">Content</label>
-    <textarea name="Content" bind:value={content} required />
-  </div>
-  <div>
-    <label for="Timestamp">Timestamp</label>
-    <input
-      name="Timestamp"
-      type="datetime-local"
-      value={new Date(timestamp / 1000 - (new Date(timestamp / 1000).getTimezoneOffset() * 60000)).toISOString().slice(0, 16)}
-      on:input={(e) => timestamp = Math.floor(new Date(e.currentTarget.value).getTime() / 1000)}
-      required
-    />
-  </div>
-
-  <button disabled={!isPostValid} on:click={() => createPost()}>
-    Create Post
-  </button>
-</div>
+<CreatePostForm
+  bind:content
+  bind:timestamp
+  {isPostValid}
+  onCreatePost={createPost}
+/>
