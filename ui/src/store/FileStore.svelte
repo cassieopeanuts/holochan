@@ -2,8 +2,8 @@
 
 import { writable, get } from 'svelte/store';
 import { FileStorageClient } from '@holochain-open-dev/file-storage';
-import { FileStatus } from '$lib/types';
-import { decodeCellIdFromBase64 } from '$lib/utils';
+import { FileStatus } from '../lib/types';
+import { decodeCellIdFromBase64 } from '../lib/utils';
 import { decodeHashFromBase64 } from '@holochain/client';
 import pRetry from 'p-retry';
 

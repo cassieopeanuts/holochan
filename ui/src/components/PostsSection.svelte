@@ -1,22 +1,36 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { posts, loading, error, fetchPostsForThread, listenForPostSignals } from "../store/PostStore";
-  import CreatePost from "../imageboard/posts/CreatePost.svelte";
-  import AllPosts from "../imageboard/posts/AllPosts.svelte";
+  import { onMount, getContext } from "svelte";
+  import type { AgentPubKey, EntryHash } from "@holochain/client";
+  
+  import { clientContext, type ClientContextValue } from "../contexts";
+  import { posts, loading, error, fetchPostsForThread, listenForPostSignals, createPost } from "../store/PostStore";
+  import CreatePostForm from "../elements/CreatePostForm.svelte";
 
-  export let author;
-  export let threadHash;
-  export let imageHash;
+  export let author: AgentPubKey;
+  export let threadHash: EntryHash;
+  export let imageHash: EntryHash | undefined;
 
-  onMount(async () => {
-    await fetchPostsForThread(threadHash);
+  onMount(() => {
+    // Now we must pass the same <ClientContextValue> as a generic to getContext
+    const { getClient } = getContext<ClientContextValue>(clientContext);
+    const client = getClient();
+    // If needed, pass the client to your store initialization or do something with it.
+
+    // Then do:
+    fetchPostsForThread(threadHash);
     listenForPostSignals();
   });
+
+  function onCreatePost(e) {
+    const { content, timestamp } = e.detail;
+    createPost(author, threadHash, imageHash, content, timestamp);
+  }
 </script>
 
 <section class="posts-section">
   <h2>Your Posts</h2>
-  <CreatePost {author} {threadHash} {imageHash} />
+
+  <CreatePostForm on:create-post={onCreatePost} />
 
   {#if $loading}
     <progress />
@@ -25,10 +39,8 @@
   {:else if !$posts.length}
     <div class="alert">No posts found for this thread.</div>
   {:else}
-    <AllPosts {author} {threadHash} />
+    {#each $posts as postHash}
+      <div>Post Hash: {postHash}</div>
+    {/each}
   {/if}
 </section>
-
-<style>
-/* Posts section styles from App.svelte */
-</style>

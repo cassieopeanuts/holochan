@@ -1,7 +1,10 @@
-import { type AppClient } from "@holochain/client";
+// src/contexts.ts
+import type { AppWebsocket } from "@holochain/client";
 
-export const clientContext = "AppClient";
+/** A symbol uniquely identifying our context key */
+export const clientContext = Symbol("holochain-client");
 
-export type ClientContext = {
-  getClient: () => Promise<AppClient>;
-};
+/** The shape of the object you'll provide in setContext() */
+export interface ClientContextValue {
+  getClient: () => AppWebsocket | null;
+}

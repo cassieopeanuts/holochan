@@ -1,27 +1,27 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { threads, loading, error, fetchThreads, listenForThreadSignals } from "../../store/ThreadStore";
-  import ThreadDetail from "./ThreadDetail.svelte";
+  import { onMount, getContext } from "svelte";
+  import { createThreadStore } from "../../store/ThreadStore";
+  import type { AppClient } from "@holochain/client";
 
-  onMount(async () => {
-    await fetchThreads();
-    listenForThreadSignals();
+  // Retrieve the Holochain client from context
+  const client: AppClient = getContext("client");
+
+  // Pass the client to createThreadStore
+  const { threads, loading, error, fetchThreads, listenForSignals } = createThreadStore(client);
+
+  onMount(() => {
+    fetchThreads();
+    listenForSignals();
   });
 </script>
 
 {#if $loading}
   <progress />
 {:else if $error}
-  <div class="alert">Error fetching the threads: {$error}.</div>
-{:else if !$threads.length}
-  <div class="alert">No threads found.</div>
+  <p style="color: red;">Error: {$error}</p>
 {:else}
-  <div>
-    {#each $threads as hash (hash)}
-      <ThreadDetail
-        threadHash={hash}
-        on:thread-deleted={() => fetchThreads()}
-      />
-    {/each}
-  </div>
+  {#each $threads as t}
+    <!-- show a thread hash -->
+    <div>{t}</div>
+  {/each}
 {/if}

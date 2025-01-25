@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import type { ActionHash, Link, AppClient, Signal } from "@holochain/client";
+import type { AgentPubKey, EntryHash } from "@holochain/client";
 
 const posts = writable<ActionHash[]>([]);
 const loading = writable(false);
@@ -57,6 +58,37 @@ export function listenForPostSignals() {
       posts.update(currentPosts => [...currentPosts, payload.action.hashed.hash]);
     }
   });
+}
+
+export async function createPost(
+  author: AgentPubKey,
+  threadHash: EntryHash,
+  imageHash: EntryHash | undefined,
+  content: string,
+  timestamp: number
+) {
+  if (!holochainClient) {
+    throw new Error("Holochain client is not initialized.");
+  }
+
+  try {
+    await holochainClient.callZome({
+      cap_secret: null,
+      role_name: "imageboard",
+      zome_name: "posts",
+      fn_name: "create_post",
+      payload: {
+        author,
+        thread_hash: threadHash,
+        image_hash: imageHash,
+        content,
+        timestamp,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to create post:", err);
+    throw err;
+  }
 }
 
 export { posts, loading, error };
