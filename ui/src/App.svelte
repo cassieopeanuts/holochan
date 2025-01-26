@@ -1,100 +1,60 @@
+<!-- projects/holochan/ui/src/App.svelte -->
+
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { encodeCellIdToBase64 } from "./lib/utils";
   import ClientProvider from "./components/ClientProvider.svelte";
   import HomePage from "./elements/Homepage.svelte";
-  import type { ClientProviderSlotProps } from "./components/ClientProvider.svelte";
-  import type { AppWebsocket, CellId, AgentPubKey } from "@holochain/client";
-  import { encodeCellIdToBase64 } from "./lib/utils";
+  import type { HoloHash } from "@holochain/client";
 
   let loading = false;
-  let error: string | undefined = undefined;
-  let threads = [];
-
-  // Will be populated once we connect to Holochain and fetch appInfo
+  let error: string | null = null;
+  let threads: Array<{
+    title: string;
+    content: string;
+    boardHash: string;
+    timestamp: number;
+    hash: HoloHash;
+  }> = [];
+  let boards = [
+    { name: "Announcements", description: "Official updates.", hash: "announcements" },
+    { name: "Random", description: "Anything goes.", hash: "random" },
+  ];
+  let client: any = null;
   let cellIdB64: string | null = null;
-  let agentPubKey: AgentPubKey | null = null;
 
-  /**
-   * Handles creating a new thread
-   */
-  function handleCreateThread({ title, content, timestamp, board }) {
-    threads = [
-      ...threads,
-      {
-        hash: `${Date.now()}`, // Replace with actual hash from backend
-        title,
-        content,
-        timestamp,
-        board,
-      },
-    ];
+  function onConnected(event: CustomEvent<{ client: any; dnaHash: HoloHash; agentPubKey: HoloHash }>) {
+    const { client: connectedClient, dnaHash, agentPubKey } = event.detail;
+    console.log("App.svelte: Client connected:", connectedClient);
+    console.log("App.svelte: DNA hash:", dnaHash);
+    console.log("App.svelte: Agent PubKey:", agentPubKey);
+
+    client = connectedClient;
+
+    cellIdB64 = encodeCellIdToBase64([agentPubKey, dnaHash]);
+    console.log("App.svelte: cellIdB64:", cellIdB64);
   }
 
-  /**
-   * Called from ClientProvider to set the client,
-   * but the actual client is also made available via context
-   */
-  async function onClientReady(client: ClientProviderSlotProps["client"]) {
-    try {
-      loading = true;
-
-      // Fetch app info and initialize
-      const installed_app_id = "imageboard";
-      const appInfo = await client.appInfo({ installed_app_id });
-
-      const cellInfo = appInfo.cell_info["imageboard"]?.[0];
-      if (!cellInfo) {
-        throw new Error(
-          `No cell_info found for role_name "imageboard" in installed_app_id="${installed_app_id}"`
-        );
-      }
-
-      let cellId: CellId;
-      if ("provisioned" in cellInfo) {
-        cellId = cellInfo.provisioned.cell_id;
-      } else if ("cloned" in cellInfo) {
-        cellId = cellInfo.cloned.cell_id;
-      } else {
-        throw new Error("Unable to find a valid cellId in cellInfo.");
-      }
-
-      cellIdB64 = encodeCellIdToBase64(cellId);
-
-      // Fetch agent public key
-      agentPubKey = await client.callZome({
-        cap_secret: null,
-        role_name: "imageboard",
-        zome_name: "posts",
-        fn_name: "get_agent_pub_key",
-        payload: null,
-      });
-
-      // Fetch threads
-      const links = await client.callZome({
-        cap_secret: null,
-        role_name: "imageboard",
-        zome_name: "posts",
-        fn_name: "get_all_threads",
-        payload: null,
-      });
-
-      threads = links.map((link) => ({
-        hash: link.target,
-        title: `Thread ${link.target.slice(0, 6)}`, // Replace with actual data
-        content: `Content for ${link.target.slice(0, 6)}`, // Replace with actual data
-        timestamp: Date.now(), // Replace with actual data
-      }));
-    } catch (e) {
-      console.error("Error initializing Holochain client:", e);
-      error = e.message;
-    } finally {
-      loading = false;
-    }
+  function handleCreateThread({ title, content, boardHash, fileHash }: { title: string; content: string; boardHash: string; fileHash: HoloHash }) {
+    threads = [
+      ...threads,
+      { title, content, boardHash, timestamp: Date.now(), hash: fileHash },
+    ];
   }
 </script>
 
-<ClientProvider let:client let:loading let:error on:connected={(e) => onClientReady(e.detail.client)}>
+<ClientProvider on:connected={onConnected}>
   <main>
-    <HomePage {threads} onCreateThread={handleCreateThread} />
+    {#if client && cellIdB64}
+      <HomePage
+        {threads}
+        {boards}
+        {client}
+        {cellIdB64}
+        onCreateThread={handleCreateThread}
+        onFileUploaded={() => console.log("Mock file uploaded")}
+      />
+    {:else}
+      <p>Loading client and cellIdB64...</p>
+    {/if}
   </main>
 </ClientProvider>

@@ -345,3 +345,11 @@ progress::-moz-progress-bar {
     section h2 {
       font-size: 1.25rem;
     }}
+
+    .CreateThreadForm {
+      display: block; /* Ensure the form is visible */
+      border: 1px solid #ccc;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    

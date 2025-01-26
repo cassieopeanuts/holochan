@@ -1,3 +1,7 @@
+pub mod thread_to_boards;
+pub use thread_to_boards::*;
+pub mod board;
+pub use board::*;
 pub mod creator_to_posts;
 pub use creator_to_posts::*;
 pub mod thread_to_posts;
@@ -16,6 +20,7 @@ pub use thread::*;
 pub enum EntryTypes {
     Thread(Thread),
     Post(Post),
+    Board(Board),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,6 +38,11 @@ pub enum LinkTypes {
     PostToThreads,
     CreatorToPosts,
     PostToCreators,
+    CreatorToBoards,
+    BoardUpdates,
+    AllBoards,
+    ThreadToBoards,
+    BoardToThreads,
 }
 
 // Validation you perform during the genesis process. Nobody else on the network performs it, only you.
@@ -80,6 +90,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Post(post) => {
                     validate_create_post(EntryCreationAction::Create(action), post)
                 }
+                EntryTypes::Board(board) => {
+                    validate_create_board(EntryCreationAction::Create(action), board)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -89,6 +102,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 EntryTypes::Post(post) => {
                     validate_create_post(EntryCreationAction::Update(action), post)
+                }
+                EntryTypes::Board(board) => {
+                    validate_create_board(EntryCreationAction::Update(action), board)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -107,6 +123,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                 };
                 match app_entry {
+                    EntryTypes::Board(board) => {
+                        let original_app_entry =
+                            must_get_valid_record(action.clone().original_action_address)?;
+                        let original_board = match Board::try_from(original_app_entry) {
+                            Ok(entry) => entry,
+                            Err(e) => {
+                                return Ok(ValidateCallbackResult::Invalid(format!(
+                                    "Expected to get Board from Record: {e:?}"
+                                )));
+                            }
+                        };
+                        validate_update_board(action, board, original_create_action, original_board)
+                    }
                     EntryTypes::Post(post) => {
                         let original_app_entry =
                             must_get_valid_record(action.clone().original_action_address)?;
@@ -182,6 +211,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
             };
             match original_app_entry {
+                EntryTypes::Board(original_board) => validate_delete_board(
+                    delete_entry.clone().action,
+                    original_action,
+                    original_board,
+                ),
                 EntryTypes::Post(original_post) => validate_delete_post(
                     delete_entry.clone().action,
                     original_action,
@@ -236,6 +270,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             LinkTypes::PostToCreators => {
                 validate_create_link_post_to_creators(action, base_address, target_address, tag)
+            }
+            LinkTypes::CreatorToBoards => {
+                validate_create_link_creator_to_boards(action, base_address, target_address, tag)
+            }
+            LinkTypes::BoardUpdates => {
+                validate_create_link_board_updates(action, base_address, target_address, tag)
+            }
+            LinkTypes::AllBoards => {
+                validate_create_link_all_boards(action, base_address, target_address, tag)
+            }
+            LinkTypes::ThreadToBoards => {
+                validate_create_link_thread_to_boards(action, base_address, target_address, tag)
+            }
+            LinkTypes::BoardToThreads => {
+                validate_create_link_board_to_threads(action, base_address, target_address, tag)
             }
         },
         FlatOp::RegisterDeleteLink {
@@ -330,6 +379,41 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 target_address,
                 tag,
             ),
+            LinkTypes::CreatorToBoards => validate_delete_link_creator_to_boards(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::BoardUpdates => validate_delete_link_board_updates(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::AllBoards => validate_delete_link_all_boards(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::ThreadToBoards => validate_delete_link_thread_to_boards(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::BoardToThreads => validate_delete_link_board_to_threads(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
         },
         FlatOp::StoreRecord(store_record) => {
             match store_record {
@@ -342,6 +426,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     EntryTypes::Post(post) => {
                         validate_create_post(EntryCreationAction::Create(action), post)
+                    }
+                    EntryTypes::Board(board) => {
+                        validate_create_board(EntryCreationAction::Create(action), board)
                     }
                 },
                 // Complementary validation to the `RegisterUpdate` Op, in which the record itself is validated
@@ -423,6 +510,37 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                                 Ok(result)
                             }
                         }
+                        EntryTypes::Board(board) => {
+                            let result = validate_create_board(
+                                EntryCreationAction::Update(action.clone()),
+                                board.clone(),
+                            )?;
+                            if let ValidateCallbackResult::Valid = result {
+                                let original_board: Option<Board> = original_record
+                                    .entry()
+                                    .to_app_option()
+                                    .map_err(|e| wasm_error!(e))?;
+                                let original_board = match original_board {
+                                    Some(board) => board,
+                                    None => {
+                                        return Ok(
+                                            ValidateCallbackResult::Invalid(
+                                                "The updated entry type must be the same as the original entry type"
+                                                    .to_string(),
+                                            ),
+                                        );
+                                    }
+                                };
+                                validate_update_board(
+                                    action,
+                                    board,
+                                    original_action,
+                                    original_board,
+                                )
+                            } else {
+                                Ok(result)
+                            }
+                        }
                     }
                 }
                 // Complementary validation to the `RegisterDelete` Op, in which the record itself is validated
@@ -480,6 +598,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         }
                         EntryTypes::Post(original_post) => {
                             validate_delete_post(action, original_action, original_post)
+                        }
+                        EntryTypes::Board(original_board) => {
+                            validate_delete_board(action, original_action, original_board)
                         }
                     }
                 }
@@ -551,6 +672,33 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         tag,
                     ),
                     LinkTypes::PostToCreators => validate_create_link_post_to_creators(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::CreatorToBoards => validate_create_link_creator_to_boards(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::BoardUpdates => validate_create_link_board_updates(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::AllBoards => {
+                        validate_create_link_all_boards(action, base_address, target_address, tag)
+                    }
+                    LinkTypes::ThreadToBoards => validate_create_link_thread_to_boards(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::BoardToThreads => validate_create_link_board_to_threads(
                         action,
                         base_address,
                         target_address,
@@ -663,6 +811,41 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             create_link.tag,
                         ),
                         LinkTypes::PostToCreators => validate_delete_link_post_to_creators(
+                            action,
+                            create_link.clone(),
+                            base_address,
+                            create_link.target_address,
+                            create_link.tag,
+                        ),
+                        LinkTypes::CreatorToBoards => validate_delete_link_creator_to_boards(
+                            action,
+                            create_link.clone(),
+                            base_address,
+                            create_link.target_address,
+                            create_link.tag,
+                        ),
+                        LinkTypes::BoardUpdates => validate_delete_link_board_updates(
+                            action,
+                            create_link.clone(),
+                            base_address,
+                            create_link.target_address,
+                            create_link.tag,
+                        ),
+                        LinkTypes::AllBoards => validate_delete_link_all_boards(
+                            action,
+                            create_link.clone(),
+                            base_address,
+                            create_link.target_address,
+                            create_link.tag,
+                        ),
+                        LinkTypes::ThreadToBoards => validate_delete_link_thread_to_boards(
+                            action,
+                            create_link.clone(),
+                            base_address,
+                            create_link.target_address,
+                            create_link.tag,
+                        ),
+                        LinkTypes::BoardToThreads => validate_delete_link_board_to_threads(
                             action,
                             create_link.clone(),
                             base_address,

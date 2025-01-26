@@ -38,6 +38,7 @@ export type PostsSignal = {
 
 /* dprint-ignore-start */
 export type EntryTypes =
+ | ({ type: 'Board'; } & Board)
  | ({ type: 'Post'; } & Post)
  | ({  type: 'Thread'; } & Thread);
 /* dprint-ignore-end */
@@ -57,4 +58,13 @@ export interface Post {
   timestamp: number;
   thread_hash: EntryHash;
   image_hash: EntryHash | undefined;
+}
+
+export interface Board {
+  name: string;
+  description: string;
+  created_at: number;
+  creator: AgentPubKey;
+  rules: string;
+  category: string;
 }

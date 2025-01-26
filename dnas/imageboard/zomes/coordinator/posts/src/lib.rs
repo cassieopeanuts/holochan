@@ -1,9 +1,12 @@
+pub mod all_boards;
 pub mod all_posts;
 pub mod all_threads;
+pub mod board;
 pub mod creator_to_posts;
 pub mod post;
 pub mod posts_by_thread;
 pub mod thread;
+pub mod thread_to_boards;
 pub mod thread_to_posts;
 use hdk::prelude::*;
 use posts_integrity::*;

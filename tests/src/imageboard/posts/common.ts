@@ -53,3 +53,25 @@ export async function createPost(cell: CallableCell, post = undefined): Promise<
     payload: post || await samplePost(cell),
   });
 }
+
+export async function sampleBoard(cell: CallableCell, partialBoard = {}) {
+  return {
+    ...{
+      name: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      created_at: 1674053334548000,
+      creator: cell.cell_id[1],
+      rules: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      category: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    },
+    ...partialBoard,
+  };
+}
+
+export async function createBoard(cell: CallableCell, board = undefined): Promise<Record> {
+  return cell.callZome({
+    zome_name: "posts",
+    fn_name: "create_board",
+    payload: board || await sampleBoard(cell),
+  });
+}

@@ -3,19 +3,34 @@ use posts_integrity::*;
 
 #[hdk_extern]
 pub fn create_thread(mut thread: Thread) -> ExternResult<Record> {
-    // Automatically set timestamp
+    // 1) Set timestamp
     thread.timestamp = sys_time()?;
-    
+
+    // 2) Create the Thread entry
     let thread_hash = create_entry(&EntryTypes::Thread(thread.clone()))?;
+
+    // 3) Link the thread to its author
     create_link(
         thread.author.clone(),
         thread_hash.clone(),
         LinkTypes::CreatorToThreads,
         (),
     )?;
+
+    // 4) If the thread has an image, link
     if let Some(base) = thread.image_hash.clone() {
         create_link(base, thread_hash.clone(), LinkTypes::ThreadToThreads, ())?;
     }
+
+    // 5) Link the thread to a board 
+    if let Some(board_hash) = thread.board_hash.clone() {
+        // board -> thread
+        create_link(board_hash.clone(), thread_hash.clone(), LinkTypes::BoardToThreads, ())?;
+        // thread -> board
+        create_link(thread_hash.clone(), board_hash.clone(), LinkTypes::ThreadToBoards, ())?;
+    }
+
+    // 6) Link to path "all_threads"
     let path = Path::from("all_threads");
     create_link(
         path.path_entry_hash()?,
@@ -23,7 +38,9 @@ pub fn create_thread(mut thread: Thread) -> ExternResult<Record> {
         LinkTypes::AllThreads,
         (),
     )?;
-    let record = get(thread_hash, GetOptions::default())?.ok_or(wasm_error!(
+
+    // 7) Return the newly created record
+    let record = get(thread_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created Thread".to_string())
     ))?;
     Ok(record)
